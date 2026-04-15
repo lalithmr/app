@@ -11,7 +11,7 @@
   "dependencies": {
     "@dataconnect/admin-generated": "file:src/dataconnect-admin-generated",
     "@dataconnect/generated": "file:src/dataconnect-generated",
-    "firebase": "^11.10.0",
+    "firebase": "^12.12.0",
     "firebase-admin": "^13.2.0",
     "next": "^15.2.4",
     "react": "^19.0.0",
