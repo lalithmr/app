@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { Chessboard } from "react-chessboard";
+import { Chessboard } from "@/components/chessboard";
 import { loadPuzzleFEN, validateMove, playOpponentMove } from "@/lib/chess";
 import type { PuzzleData } from "@/types";
 import { Chess } from "chess.js";
@@ -89,13 +89,7 @@ export function PuzzleEngine({ puzzle, onSolved }: PuzzleEngineProps) {
       <Chessboard 
         position={fen} 
         onPieceDrop={onPieceDrop} 
-        boardOrientation={orientation}
-        customDarkSquareStyle={{ backgroundColor: "rgba(86, 210, 210, 0.4)" }}
-        customLightSquareStyle={{ backgroundColor: "rgba(245, 247, 251, 0.2)" }}
-        customBoardStyle={{ 
-          borderRadius: "8px", 
-          boxShadow: "0 10px 30px rgba(0,0,0,0.4)"
-        }}
+        boardOrientation={orientation as "white" | "black"}
       />
       
       <div style={{ marginTop: "1rem", textAlign: "center", minHeight: "3rem" }}>
