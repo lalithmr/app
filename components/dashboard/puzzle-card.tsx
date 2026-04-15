@@ -1,4 +1,6 @@
 import type { PuzzleData } from "@/types";
+import { PuzzleEngine } from "@/components/puzzle/PuzzleEngine";
+import { useState } from "react";
 
 type PuzzleCardProps = {
   puzzle: PuzzleData | null;
@@ -15,9 +17,17 @@ export function PuzzleCard({
   onRefresh,
   onMarkSolved
 }: PuzzleCardProps) {
-  const puzzleLink = puzzle?.puzzle?.id
-    ? `https://lichess.org/training/${puzzle.puzzle.id}`
-    : "https://lichess.org/training";
+  const [solvedState, setSolvedState] = useState(false);
+
+  const handleSolved = async () => {
+    setSolvedState(true);
+    await onMarkSolved();
+  };
+
+  const handleRefresh = async () => {
+    setSolvedState(false);
+    await onRefresh();
+  };
 
   return (
     <section className="panel">
@@ -26,7 +36,7 @@ export function PuzzleCard({
           <p className="muted-label">Puzzle relay</p>
           <h2>Daily tactical challenge</h2>
         </div>
-        <button type="button" className="ghost-button" onClick={onRefresh} disabled={loading}>
+        <button type="button" className="ghost-button" onClick={handleRefresh} disabled={loading}>
           {loading ? "Refreshing..." : "Refresh puzzle"}
         </button>
       </div>
@@ -50,24 +60,11 @@ export function PuzzleCard({
             </div>
           </div>
 
-          <p className="muted-copy">
-            Open the puzzle on Lichess, solve it there, then mark it complete to keep your
-            Eternix task board in sync.
+          <p className="muted-copy" style={{ marginBottom: "1rem" }}>
+            Solve the puzzle directly on the board below to complete your task.
           </p>
-
-          <div className="inline-actions">
-            <a
-              href={puzzleLink}
-              target="_blank"
-              rel="noreferrer"
-              className="primary-button link-button"
-            >
-              Open puzzle
-            </a>
-            <button type="button" className="secondary-button" onClick={onMarkSolved}>
-              Mark solved
-            </button>
-          </div>
+          
+          <PuzzleEngine puzzle={puzzle} onSolved={handleSolved} />
         </div>
       ) : (
         <p className="muted-copy">Load the next puzzle to fill the current level task board.</p>
