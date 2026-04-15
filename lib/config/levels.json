@@ -1,0 +1,102 @@
+[
+  {
+    "id": "pawn-1",
+    "league": "pawn",
+    "level": 1,
+    "title": "Opening Spark",
+    "subtitle": "Warm up with your first Eternix match cycle.",
+    "tasks": ["play_1_game", "win_1_game", "solve_1_puzzle"],
+    "rewardPoints": 10,
+    "locked": false
+  },
+  {
+    "id": "pawn-2",
+    "league": "pawn",
+    "level": 2,
+    "title": "Center Control",
+    "subtitle": "Keep initiative and build consistency.",
+    "tasks": ["play_1_game", "win_1_game", "solve_1_puzzle"],
+    "rewardPoints": 10,
+    "locked": false
+  },
+  {
+    "id": "pawn-3",
+    "league": "pawn",
+    "level": 3,
+    "title": "Tactical Vision",
+    "subtitle": "Sharpen your eye for forcing ideas.",
+    "tasks": ["play_1_game", "win_1_game", "solve_1_puzzle"],
+    "rewardPoints": 10,
+    "locked": false
+  },
+  {
+    "id": "pawn-4",
+    "league": "pawn",
+    "level": 4,
+    "title": "Momentum Lane",
+    "subtitle": "Convert activity into clean wins.",
+    "tasks": ["play_1_game", "win_1_game", "solve_1_puzzle"],
+    "rewardPoints": 10,
+    "locked": false
+  },
+  {
+    "id": "pawn-5",
+    "league": "pawn",
+    "level": 5,
+    "title": "Pressure Point",
+    "subtitle": "Lean on your streak and stay composed.",
+    "tasks": ["play_1_game", "win_1_game", "solve_1_puzzle"],
+    "rewardPoints": 10,
+    "locked": false
+  },
+  {
+    "id": "pawn-6",
+    "league": "pawn",
+    "level": 6,
+    "title": "Knight Fork Alley",
+    "subtitle": "Spot tactical leverage before it disappears.",
+    "tasks": ["play_1_game", "win_1_game", "solve_1_puzzle"],
+    "rewardPoints": 10,
+    "locked": false
+  },
+  {
+    "id": "pawn-7",
+    "league": "pawn",
+    "level": 7,
+    "title": "Final Advance",
+    "subtitle": "Push through the last stretch of the Pawn league.",
+    "tasks": ["play_1_game", "win_1_game", "solve_1_puzzle"],
+    "rewardPoints": 10,
+    "locked": false
+  },
+  {
+    "id": "pawn-8",
+    "league": "pawn",
+    "level": 8,
+    "title": "Ascension Gate",
+    "subtitle": "Earn your passage into the Bishop path.",
+    "tasks": ["play_1_game", "win_1_game", "solve_1_puzzle"],
+    "rewardPoints": 10,
+    "locked": false
+  },
+  {
+    "id": "bishop-1",
+    "league": "bishop",
+    "level": 1,
+    "title": "Diagonal Dawn",
+    "subtitle": "The next league unlocks when your wins carry you forward.",
+    "tasks": ["play_1_game", "win_1_game", "solve_1_puzzle"],
+    "rewardPoints": 10,
+    "locked": true
+  },
+  {
+    "id": "bishop-2",
+    "league": "bishop",
+    "level": 2,
+    "title": "Long Range",
+    "subtitle": "A preview of the next climb.",
+    "tasks": ["play_1_game", "win_1_game", "solve_1_puzzle"],
+    "rewardPoints": 10,
+    "locked": true
+  }
+]
