@@ -10,15 +10,21 @@ import { useAuth } from "@/context/auth-context";
 
 export function GameBoard() {
   const { user } = useAuth();
-  const [game, setGame] = useState(new Chess());
+  const gameRef = useRef(new Chess());
   const [boardOrientation, setBoardOrientation] = useState<"white" | "black">("white");
   const [engineReady, setEngineReady] = useState(false);
-  const [fen, setFen] = useState(game.fen());
+  const [fen, setFen] = useState(gameRef.current.fen());
   const [moveHistory, setMoveHistory] = useState<string[]>([]);
   const [isEngineCalculating, setIsEngineCalculating] = useState(false);
   const [activeBot, setActiveBot] = useState<BotDetails | null>(null);
 
   const engine = useRef<Worker | null>(null);
+
+  const applyEngineMoveRef = useRef<((moveStr: string) => void) | null>(null);
+  
+  useEffect(() => {
+    applyEngineMoveRef.current = applyEngineMove;
+  });
 
   // Initialize Web Worker
   useEffect(() => {
@@ -33,8 +39,8 @@ export function GameBoard() {
       }
       if (typeof msg === 'string' && msg.includes("bestmove")) {
         const moveStr = msg.split(" ")[1];
-        if (moveStr) {
-          applyEngineMove(moveStr);
+        if (moveStr && applyEngineMoveRef.current) {
+          applyEngineMoveRef.current(moveStr);
         }
       }
     };
@@ -47,13 +53,13 @@ export function GameBoard() {
     };
   }, []);
 
-  const saveGameToFirebase = async (result: string) => {
+  const saveGameToFirebase = async (result: string, movesToSave: string[] = []) => {
     if (!user) return;
     try {
       await addDoc(collection(db, "games"), {
         userId: user.uid,
         result,
-        moves: moveHistory,
+        moves: movesToSave.length > 0 ? movesToSave : moveHistory,
         date: Date.now()
       });
     } catch (e) {
@@ -61,7 +67,7 @@ export function GameBoard() {
     }
   };
 
-  const handleGameOver = useCallback((currentGame: Chess) => {
+  const handleGameOver = useCallback((currentGame: Chess, newMoves: string[]) => {
     let result = "";
     if (currentGame.isCheckmate()) {
       result = currentGame.turn() === "w" ? "You Lose" : "You Win";
@@ -71,21 +77,27 @@ export function GameBoard() {
 
     if (result) {
       alert(`Game Over: ${result}`);
-      saveGameToFirebase(result);
+      saveGameToFirebase(result, newMoves);
     }
-  }, [user, moveHistory]);
+  }, [user]);
 
   const makeMove = (move: { from: string; to: string; promotion?: string }) => {
     try {
-      const g = new Chess(game.fen());
+      const g = new Chess(gameRef.current.fen());
       const result = g.move(move);
 
       if (result) {
-        setGame(g);
+        gameRef.current = g;
         setFen(g.fen());
-        setMoveHistory(prev => [...prev, result.san]);
-        handleGameOver(g);
-        return true;
+        
+        let localMoves: string[] = [];
+        setMoveHistory(prev => {
+          localMoves = [...prev, result.san];
+          return localMoves;
+        });
+        
+        setTimeout(() => handleGameOver(g, localMoves), 0);
+        return g.fen();
       }
     } catch (e) {
       // Invalid move
@@ -105,16 +117,29 @@ export function GameBoard() {
     makeMove({ from, to, promotion });
   };
 
-  const onDrop = ({ sourceSquare, targetSquare, piece }: any) => {
+  const onDrop = (...args: any[]) => {
+    let sourceSquare: string, targetSquare: string, pieceStr: string = "";
+    
+    // Safely extract regardless of react-chessboard version arguments
+    if (args.length === 1 && typeof args[0] === 'object' && args[0] !== null) {
+      sourceSquare = args[0].sourceSquare;
+      targetSquare = args[0].targetSquare;
+      pieceStr = (args[0].piece && args[0].piece.pieceType) ? args[0].piece.pieceType : (args[0].piece || "");
+    } else {
+      sourceSquare = args[0];
+      targetSquare = args[1];
+      pieceStr = args[2] || "";
+    }
+
     if (!targetSquare) return false;
 
     // Prevent moves if engine is calculating or game is over
-    if (isEngineCalculating || game.isGameOver()) return false;
+    if (isEngineCalculating || gameRef.current.isGameOver()) return false;
 
-    // Must be user's turn (White)
-    if (game.turn() !== 'w' && boardOrientation === 'white') return false;
+    // Must be user's turn
+    if (gameRef.current.turn() !== 'w' && boardOrientation === 'white') return false;
+    if (gameRef.current.turn() !== 'b' && boardOrientation === 'black') return false;
 
-    const pieceStr = piece.pieceType; // e.g. "wP"
     const isPromotion = (pieceStr === "wP" && targetSquare[1] === "8") || (pieceStr === "bP" && targetSquare[1] === "1");
 
     const moveObj: { from: string, to: string, promotion?: string } = {
@@ -128,12 +153,13 @@ export function GameBoard() {
 
     const moveValid = makeMove(moveObj);
 
-    if (moveValid) {
+    if (typeof moveValid === 'string') {
       // Trigger Engine response
-      requestEngineMove(game.fen());
+      requestEngineMove(moveValid);
+      return true;
     }
 
-    return moveValid;
+    return false;
   };
 
   const requestEngineMove = (currentFen: string) => {
@@ -147,14 +173,14 @@ export function GameBoard() {
 
   const resetGame = () => {
     const newGame = new Chess();
-    setGame(newGame);
+    gameRef.current = newGame;
     setFen(newGame.fen());
     setMoveHistory([]);
     setActiveBot(null); // Return to bot selection
   };
 
   const resignGame = () => {
-    if (game.isGameOver()) return;
+    if (gameRef.current.isGameOver()) return;
     alert("You Lose (Resigned)");
     saveGameToFirebase("Resigned");
     resetGame();
@@ -179,13 +205,12 @@ export function GameBoard() {
 
         <div className="chessboard-container">
           <Chessboard
-            options={{
-              position: fen,
-              onPieceDrop: onDrop,
-              boardOrientation: boardOrientation,
-              darkSquareStyle: { backgroundColor: "#56d2d2" },
-              lightSquareStyle: { backgroundColor: "#f5f7fb" }
-            }}
+            position={fen}
+            onPieceDrop={onDrop}
+            boardOrientation={boardOrientation}
+            customDarkSquareStyle={{ backgroundColor: "#56d2d2" }}
+            customLightSquareStyle={{ backgroundColor: "#f5f7fb" }}
+            arePremovesAllowed={false}
           />
         </div>
 
@@ -205,7 +230,7 @@ export function GameBoard() {
           onNewGame={resetGame}
           onResign={resignGame}
           onFlipBoard={() => setBoardOrientation(prev => prev === "white" ? "black" : "white")}
-          isDisabled={game.isGameOver() || moveHistory.length === 0}
+          isDisabled={gameRef.current.isGameOver() || moveHistory.length === 0}
         />
         <MoveList moves={moveHistory} />
       </div>
