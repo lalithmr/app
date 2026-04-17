@@ -22,7 +22,12 @@ export function getDefaultUserProfile(user: User, preferredUsername?: string): U
     points: 0,
     streak: 0,
     lastGameId: "",
-    taskProgress: {}
+    taskProgress: {},
+    puzzleProgress: {
+      completedCount: 0,
+      streak: 0,
+      completedPuzzleIds: []
+    }
   };
 }
 

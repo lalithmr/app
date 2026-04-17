@@ -6,6 +6,10 @@ type ProfileCardProps = {
 };
 
 export function ProfileCard({ profile }: ProfileCardProps) {
+  const puzzleProgress = profile.puzzleProgress ?? {
+    completedCount: 0,
+    streak: 0
+  };
   const progressPercent = Math.min(
     (profile.level / getLeagueLevelCount(profile.league)) * 100,
     100
@@ -13,8 +17,25 @@ export function ProfileCard({ profile }: ProfileCardProps) {
 
   return (
     <section className="panel profile-card">
-      <div className="profile-head">
-        <div>
+      <div className="profile-head" style={{ display: "flex", gap: "1.5rem" }}>
+        <div 
+          style={{ 
+            width: "5rem", 
+            height: "5rem", 
+            borderRadius: "50%", 
+            background: "linear-gradient(135deg, rgba(246, 200, 95, 0.4), rgba(86, 210, 210, 0.4))",
+            display: "flex", 
+            alignItems: "center", 
+            justifyContent: "center", 
+            color: "var(--text)", 
+            fontSize: "2rem",
+            fontWeight: "bold",
+            border: "1px solid var(--border)"
+          }}
+        >
+          {profile.username.charAt(0).toUpperCase()}
+        </div>
+        <div style={{ flexGrow: 1 }}>
           <p className="muted-label">Profile</p>
           <h2>{profile.username}</h2>
           <p className="muted-copy">
@@ -39,16 +60,16 @@ export function ProfileCard({ profile }: ProfileCardProps) {
 
       <div className="stats-grid">
         <div className="stat-card">
-          <span>Linked Lichess</span>
-          <strong>{profile.lichessUsername || "Not connected"}</strong>
+          <span>Puzzles solved</span>
+          <strong>{puzzleProgress.completedCount}</strong>
         </div>
         <div className="stat-card">
-          <span>Streak</span>
-          <strong>{profile.streak}</strong>
+          <span>Puzzle streak</span>
+          <strong>{puzzleProgress.streak}</strong>
         </div>
         <div className="stat-card">
-          <span>Last processed game</span>
-          <strong>{profile.lastGameId || "None yet"}</strong>
+          <span>Last puzzle</span>
+          <strong>{puzzleProgress.lastPuzzleId || "None yet"}</strong>
         </div>
       </div>
     </section>

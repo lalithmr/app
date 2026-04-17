@@ -19,8 +19,17 @@ export interface UserProfile {
   streak: number;
   lastGameId: string;
   taskProgress?: Record<string, LevelTaskState>;
+  puzzleProgress?: PuzzleProgress;
   createdAt?: string;
   updatedAt?: string;
+}
+
+export interface PuzzleProgress {
+  completedCount: number;
+  streak: number;
+  lastCompletedAt?: string;
+  lastPuzzleId?: string;
+  completedPuzzleIds?: string[];
 }
 
 export interface LevelConfig {
@@ -62,10 +71,11 @@ export interface LichessGame {
   };
 }
 
-export interface PuzzleData {
+export interface LichessPuzzleResponse {
   game?: {
     id?: string;
     pgn?: string;
+    fen?: string;
     clock?: string;
     perf?: {
       name?: string;
@@ -82,7 +92,22 @@ export interface PuzzleData {
     solution?: string[];
     themes?: string[];
     initialPly?: number;
+    fen?: string;
   };
+  fen?: string;
+}
+
+export interface PuzzleData {
+  id: string;
+  rating?: number;
+  plays?: number;
+  themes: string[];
+  solution: string[];
+  initialFen: string;
+  orientation: "white" | "black";
+  sourceGameId?: string;
+  perfName?: string;
+  clock?: string;
 }
 
 export interface ApiErrorResponse {

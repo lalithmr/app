@@ -16,44 +16,106 @@ export default async function handler(
     });
   }
 
-  try {
-    const decodedToken = await requireApiUser(req);
-    const reference = adminDb.collection("users").doc(decodedToken.uid);
-    const snapshot = await reference.get();
+  const puzzleId = String(req.body?.puzzleId ?? "").trim();
 
-    if (!snapshot.exists) {
-      return res.status(404).json({
-        error: "User profile not found."
+  if (!puzzleId) {
+    return res.status(400).json({
+      error: "A puzzle id is required."
+    });
+  }
+
+  try {
+    if (!process.env.FIREBASE_PRIVATE_KEY || process.env.FIREBASE_PRIVATE_KEY.includes("YOUR_KEY_HERE")) {
+      return res.status(200).json({
+        updated: true,
+        alreadyCompleted: false,
+        profile: {
+          uid: "mock",
+          taskProgress: {
+            mock_level: {
+              solve_1_puzzle: true,
+              puzzleId
+            }
+          },
+          puzzleProgress: {
+            completedCount: 1,
+            streak: 1,
+            completedPuzzleIds: [puzzleId]
+          }
+        }
       });
     }
 
-    const profile = snapshot.data() as UserProfile;
-    const levelId = getLevelId(profile.league, profile.level);
-    const existingLevelState = profile.taskProgress?.[levelId] ?? {};
-    const nextProfile = {
-      ...profile,
-      taskProgress: {
-        ...(profile.taskProgress ?? {}),
-        [levelId]: {
-          ...existingLevelState,
-          solve_1_puzzle: true,
-          puzzleId: String(req.body?.puzzleId ?? ""),
-          updatedAt: new Date().toISOString()
-        }
-      },
-      updatedAt: new Date().toISOString()
-    };
+    const decodedToken = await requireApiUser(req);
+    const reference = adminDb.collection("users").doc(decodedToken.uid);
+    const result = await adminDb.runTransaction(async (transaction) => {
+      const snapshot = await transaction.get(reference);
 
-    await reference.set(nextProfile, {
-      merge: true
+      if (!snapshot.exists) {
+        throw new Error("User profile not found.");
+      }
+
+      const profile = snapshot.data() as UserProfile;
+      const levelId = getLevelId(profile.league, profile.level);
+      const existingLevelState = profile.taskProgress?.[levelId] ?? {};
+      const existingPuzzleProgress = profile.puzzleProgress ?? {
+        completedCount: 0,
+        streak: 0,
+        completedPuzzleIds: []
+      };
+      const completedPuzzleIds = existingPuzzleProgress.completedPuzzleIds ?? [];
+      const alreadyCompleted = completedPuzzleIds.includes(puzzleId);
+      const nextCompletedPuzzleIds = alreadyCompleted
+        ? completedPuzzleIds
+        : [puzzleId, ...completedPuzzleIds].slice(0, 100);
+      const timestamp = new Date().toISOString();
+      const nextProfile = {
+        ...profile,
+        taskProgress: {
+          ...(profile.taskProgress ?? {}),
+          [levelId]: {
+            ...existingLevelState,
+            solve_1_puzzle: true,
+            puzzleId,
+            updatedAt: timestamp
+          }
+        },
+        puzzleProgress: {
+          completedCount: alreadyCompleted
+            ? (existingPuzzleProgress.completedCount ?? 0)
+            : (existingPuzzleProgress.completedCount ?? 0) + 1,
+          streak: alreadyCompleted
+            ? (existingPuzzleProgress.streak ?? 0)
+            : (existingPuzzleProgress.streak ?? 0) + 1,
+          lastCompletedAt: timestamp,
+          lastPuzzleId: puzzleId,
+          completedPuzzleIds: nextCompletedPuzzleIds
+        },
+        updatedAt: timestamp
+      };
+
+      transaction.set(reference, nextProfile, {
+        merge: true
+      });
+
+      return {
+        updated: !alreadyCompleted,
+        alreadyCompleted,
+        profile: nextProfile
+      };
     });
 
     return res.status(200).json({
-      updated: true,
-      profile: serializeValue(nextProfile)
+      ...result,
+      profile: serializeValue(result.profile)
     });
   } catch (error) {
-    return res.status(401).json({
+    const status =
+      error instanceof Error && error.message === "User profile not found."
+        ? 404
+        : 401;
+
+    return res.status(status).json({
       error: error instanceof Error ? error.message : "Unauthorized request."
     });
   }

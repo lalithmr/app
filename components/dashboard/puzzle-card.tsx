@@ -1,13 +1,13 @@
 import type { PuzzleData } from "@/types";
 import { PuzzleEngine } from "@/components/puzzle/PuzzleEngine";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 type PuzzleCardProps = {
   puzzle: PuzzleData | null;
   loading: boolean;
   error: string;
   onRefresh: () => Promise<void>;
-  onMarkSolved: () => Promise<void>;
+  onMarkSolved: (puzzleId: string) => Promise<void>;
 };
 
 export function PuzzleCard({
@@ -19,9 +19,17 @@ export function PuzzleCard({
 }: PuzzleCardProps) {
   const [solvedState, setSolvedState] = useState(false);
 
+  useEffect(() => {
+    setSolvedState(false);
+  }, [puzzle?.id]);
+
   const handleSolved = async () => {
+    if (!puzzle || solvedState) {
+      return;
+    }
+
     setSolvedState(true);
-    await onMarkSolved();
+    await onMarkSolved(puzzle.id);
   };
 
   const handleRefresh = async () => {
@@ -48,23 +56,36 @@ export function PuzzleCard({
           <div className="stats-grid">
             <div className="stat-card">
               <span>Rating</span>
-              <strong>{puzzle.puzzle?.rating ?? "Unknown"}</strong>
+              <strong>{puzzle.rating ?? "Unknown"}</strong>
             </div>
             <div className="stat-card">
-              <span>Themes</span>
-              <strong>{puzzle.puzzle?.themes?.slice(0, 3).join(", ") || "Mixed"}</strong>
+              <span>Puzzle</span>
+              <strong>#{puzzle.id}</strong>
             </div>
             <div className="stat-card">
-              <span>Solution length</span>
-              <strong>{puzzle.puzzle?.solution?.length ?? 0} moves</strong>
+              <span>Solution line</span>
+              <strong>{puzzle.solution.length} plies</strong>
             </div>
           </div>
 
+          <div className="theme-row">
+            {puzzle.themes.slice(0, 5).map((theme) => (
+              <span key={theme} className="theme-pill">
+                {theme}
+              </span>
+            ))}
+            {puzzle.perfName ? <span className="theme-pill">{puzzle.perfName}</span> : null}
+          </div>
+
           <p className="muted-copy" style={{ marginBottom: "1rem" }}>
-            Solve the puzzle directly on the board below to complete your task.
+            All gameplay stays inside this board. Your move is checked with `chess.js`, then the puzzle line answers automatically.
           </p>
           
           <PuzzleEngine puzzle={puzzle} onSolved={handleSolved} />
+
+          {solvedState ? (
+            <p className="inline-success">Puzzle completion saved. Load another puzzle to keep the streak alive.</p>
+          ) : null}
         </div>
       ) : (
         <p className="muted-copy">Load the next puzzle to fill the current level task board.</p>

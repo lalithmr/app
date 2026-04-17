@@ -2,7 +2,7 @@ import type { NextApiRequest, NextApiResponse } from "next";
 
 import { getRequestFingerprint } from "@/lib/api-auth";
 import { checkRateLimit } from "@/lib/rate-limit";
-import { fetchNextPuzzle } from "@/services/lichess";
+import { getNextPuzzle } from "@/services/puzzle";
 import type { ApiErrorResponse, PuzzleData } from "@/types";
 
 export default async function handler(
@@ -24,7 +24,7 @@ export default async function handler(
   }
 
   try {
-    const puzzle = await fetchNextPuzzle();
+    const puzzle = await getNextPuzzle();
     return res.status(200).json(puzzle);
   } catch {
     return res.status(502).json({

@@ -1,6 +1,6 @@
 import { parseNDJSON } from "@/lib/parse-ndjson";
 import { enforceCooldown } from "@/lib/rate-limit";
-import type { LichessGame, PuzzleData } from "@/types";
+import type { LichessGame, LichessPuzzleResponse } from "@/types";
 
 const LICHESS_BASE_URL = process.env.LICHESS_BASE_URL ?? "https://lichess.org";
 const LICHESS_USER_AGENT = process.env.LICHESS_USER_AGENT ?? "Eternix/1.0";
@@ -75,9 +75,13 @@ export async function fetchLatestLichessGame(username: string) {
 export async function fetchNextPuzzle() {
   const response = await lichessFetch(
     "/api/puzzle/next",
-    undefined,
+    {
+      headers: {
+        Accept: "application/json"
+      }
+    },
     "puzzle:next"
   );
 
-  return (await response.json()) as PuzzleData;
+  return (await response.json()) as LichessPuzzleResponse;
 }

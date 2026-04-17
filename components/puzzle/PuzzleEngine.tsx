@@ -1,122 +1,243 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
-import { Chessboard } from "@/components/chessboard";
-import { loadPuzzleFEN, validateMove, playOpponentMove } from "@/lib/chess";
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+
+import { ChessBoard } from "@/components/chess/chess-board";
+import { applySolutionMove, validatePuzzleMove, getExpectedSan } from "@/lib/chess";
 import type { PuzzleData } from "@/types";
-import { Chess } from "chess.js";
 
 interface PuzzleEngineProps {
   puzzle: PuzzleData | null;
-  onSolved: () => void;
+  onSolved: (puzzleId: string) => Promise<void> | void;
 }
 
 export function PuzzleEngine({ puzzle, onSolved }: PuzzleEngineProps) {
-  const [fen, setFen] = useState<string>("start");
+  const replyTimeoutRef = useRef<number | null>(null);
+  const [fen, setFen] = useState("start");
   const [moveIndex, setMoveIndex] = useState(0);
-  const [status, setStatus] = useState<"idle" | "playing" | "solved" | "failed">("idle");
-  const [errorMsg, setErrorMsg] = useState("");
+  const [solved, setSolved] = useState(false);
+  const [isReplying, setIsReplying] = useState(false);
+  const [feedbackTone, setFeedbackTone] = useState<"neutral" | "success" | "error">("neutral");
+  const [feedbackTitle, setFeedbackTitle] = useState("Find the best move");
+  const [feedbackCopy, setFeedbackCopy] = useState("Your move is validated inside the app against the puzzle line.");
+  const [squareStyles, setSquareStyles] = useState<Record<string, CSSProperties>>({});
 
-  const orientation = useMemo(() => {
-    if (!puzzle?.game?.pgn) return "white";
-    try {
-      const c = new Chess();
-      c.loadPgn(puzzle.game.pgn);
-      return c.turn() === "w" ? "white" : "black";
-    } catch {
-      return "white";
+  const resetPuzzle = useCallback(() => {
+    if (!puzzle) {
+      return;
     }
+
+    if (replyTimeoutRef.current) {
+      window.clearTimeout(replyTimeoutRef.current);
+      replyTimeoutRef.current = null;
+    }
+
+    setFen(puzzle.initialFen);
+    setMoveIndex(0);
+    setSolved(false);
+    setIsReplying(false);
+    setFeedbackTone("neutral");
+    setFeedbackTitle("Find the best move");
+    setFeedbackCopy("Play the top engine move and the board will answer automatically.");
+    setSquareStyles({});
   }, [puzzle]);
 
   useEffect(() => {
-    if (puzzle) {
-      const initialFen = loadPuzzleFEN(puzzle);
-      if (initialFen) {
-        setFen(initialFen);
-        setMoveIndex(0);
-        setStatus("playing");
-        setErrorMsg("");
+    resetPuzzle();
+  }, [resetPuzzle]);
+
+  useEffect(() => {
+    return () => {
+      if (replyTimeoutRef.current) {
+        window.clearTimeout(replyTimeoutRef.current);
       }
-    }
-  }, [puzzle]);
+    };
+  }, []);
 
-  const onPieceDrop = (sourceSquare: string, targetSquare: string, piece: string) => {
-    if (status !== "playing") return false;
-    
-    let promotion = "";
-    if (piece[1]?.toLowerCase() === "p" && (targetSquare[1] === "1" || targetSquare[1] === "8")) {
-      promotion = "q"; // auto-promote to queen for now
+  const handleShowSolution = useCallback(() => {
+    if (!puzzle || solved || isReplying) {
+      return;
     }
-    const uciMove = `${sourceSquare}${targetSquare}${promotion}`;
-    
-    const expectedMove = puzzle?.puzzle?.solution?.[moveIndex];
-    if (!expectedMove) return false;
 
-    const { isValid, newFen } = validateMove(fen, uciMove, expectedMove);
-    
-    if (isValid && newFen) {
-      setFen(newFen);
-      setErrorMsg("Correct move!");
-      const nextIndex = moveIndex + 1;
-      setMoveIndex(nextIndex);
+    try {
+      const expectedUci = puzzle.solution[moveIndex];
+      if (!expectedUci) return;
+      const expectedSan = getExpectedSan(fen, expectedUci);
       
-      const solutionLength = puzzle?.puzzle?.solution?.length || 0;
-      if (nextIndex >= solutionLength) {
-        setStatus("solved");
-        setErrorMsg("");
-        onSolved();
-      } else {
-        setTimeout(() => {
-          const opponentMove = puzzle!.puzzle!.solution![nextIndex];
-          const result = playOpponentMove(newFen, opponentMove);
-          if (result.moveValid && result.fen) {
-            setFen(result.fen);
-            setMoveIndex(nextIndex + 1);
-            setErrorMsg("Your turn");
-          }
-        }, 500);
-      }
-      return true;
-    } else {
-      setErrorMsg("Incorrect move! Try again.");
-      setStatus("failed");
-      return false;
+      setFeedbackTone("neutral");
+      setFeedbackTitle("Solution");
+      setFeedbackCopy(`The expected move is ${expectedSan}.`);
+
+      const from = expectedUci.slice(0, 2);
+      const to = expectedUci.slice(2, 4);
+      setSquareStyles({
+        [from]: { backgroundColor: "rgba(255, 255, 0, 0.6)" },
+        [to]: { backgroundColor: "rgba(255, 255, 0, 0.6)" }
+      });
+    } catch (err) {
+      console.error(err);
     }
-  };
+  }, [fen, isReplying, moveIndex, puzzle, solved]);
+
+  const moveProgress = useMemo(() => {
+    const totalTurns = Math.max(Math.ceil((puzzle?.solution.length ?? 0) / 2), 1);
+    const completedTurns = Math.min(Math.floor(moveIndex / 2), totalTurns);
+
+    return {
+      totalTurns,
+      completedTurns
+    };
+  }, [moveIndex, puzzle]);
+
+  const markSolved = useCallback((lastMoveSan?: string) => {
+    if (!puzzle || solved) {
+      return;
+    }
+
+    setSolved(true);
+    setIsReplying(false);
+    setFeedbackTone("success");
+    setFeedbackTitle("Puzzle completed");
+    setFeedbackCopy(
+      lastMoveSan
+        ? `You found ${lastMoveSan}! The solve has been recorded in your Firebase progress.`
+        : "The solve has been recorded in your Firebase progress."
+    );
+    void onSolved(puzzle.id);
+  }, [onSolved, puzzle, solved]);
+
+  const handlePieceDrop = useCallback(
+    ({
+      piece,
+      sourceSquare,
+      targetSquare
+    }: {
+      piece: string;
+      sourceSquare: string;
+      targetSquare: string;
+    }) => {
+      if (!puzzle || solved || isReplying) {
+        return false;
+      }
+
+      const expectedMove = puzzle.solution[moveIndex];
+
+      if (!expectedMove) {
+        return false;
+      }
+
+      const validation = validatePuzzleMove({
+        fen,
+        expectedUci: expectedMove,
+        sourceSquare,
+        targetSquare,
+        piece
+      });
+
+      if (validation.status !== "correct") {
+        setFeedbackTone("error");
+        setFeedbackTitle("Try again");
+        setFeedbackCopy(
+          validation.status === "illegal"
+            ? "That move is not legal in this position."
+            : `Incorrect. The correct move was ${validation.expectedSan}.`
+        );
+        setSquareStyles({
+          [sourceSquare]: { backgroundColor: "rgba(255, 135, 135, 0.55)" },
+          [targetSquare]: { backgroundColor: "rgba(255, 135, 135, 0.55)" }
+        });
+        return false;
+      }
+
+      const nextMoveIndex = moveIndex + 1;
+
+      setFen(validation.nextFen);
+      setMoveIndex(nextMoveIndex);
+      setFeedbackTone("success");
+      setFeedbackTitle("Correct move");
+      setFeedbackCopy(`You found ${validation.attemptedSan}.`);
+      setSquareStyles({
+        [sourceSquare]: { backgroundColor: "rgba(116, 226, 157, 0.55)" },
+        [targetSquare]: { backgroundColor: "rgba(116, 226, 157, 0.55)" }
+      });
+
+      if (nextMoveIndex >= puzzle.solution.length) {
+        markSolved(validation.attemptedSan);
+        return true;
+      }
+
+      setIsReplying(true);
+      replyTimeoutRef.current = window.setTimeout(() => {
+        const opponentMove = puzzle.solution[nextMoveIndex];
+        const reply = applySolutionMove(validation.nextFen, opponentMove);
+        const upcomingMoveIndex = nextMoveIndex + 1;
+
+        setFen(reply.fen);
+        setMoveIndex(upcomingMoveIndex);
+        setIsReplying(false);
+        setSquareStyles({});
+
+        if (upcomingMoveIndex >= puzzle.solution.length) {
+          markSolved();
+          return;
+        }
+
+        setFeedbackTone("neutral");
+        setFeedbackTitle("Your turn");
+        setFeedbackCopy(`Opponent answered with ${reply.san}. Find the next move.`);
+      }, 550);
+
+      return true;
+    },
+    [fen, isReplying, markSolved, moveIndex, puzzle, solved]
+  );
 
   if (!puzzle) return null;
 
   return (
-    <div style={{ width: "100%", maxWidth: 500, margin: "0 auto", position: "relative" }}>
-      <Chessboard 
-        position={fen} 
-        onPieceDrop={onPieceDrop} 
-        boardOrientation={orientation as "white" | "black"}
+    <div className="puzzle-engine">
+      <ChessBoard
+        position={fen}
+        orientation={puzzle.orientation}
+        allowDragging={!solved && !isReplying}
+        squareStyles={squareStyles}
+        onPieceDrop={handlePieceDrop}
       />
-      
-      <div style={{ marginTop: "1rem", textAlign: "center", minHeight: "3rem" }}>
-        {status === "solved" ? (
-          <h3 style={{ color: "var(--success)" }}>Puzzle Solved!</h3>
-        ) : status === "failed" ? (
-          <h3 style={{ color: "var(--danger)" }}>{errorMsg}</h3>
-        ) : (
-           <h3 style={{ color: "var(--teal)" }}>{errorMsg || (moveIndex === 0 ? "Find the best move" : "Keep going!")}</h3>
-        )}
+
+      <div className={`puzzle-feedback ${feedbackTone}`}>
+        <strong>{feedbackTitle}</strong>
+        <span>{isReplying ? "Opponent is replying..." : feedbackCopy}</span>
       </div>
-      
-      {status === 'failed' && (
-        <button 
-          className="secondary-button" 
-          style={{ display: 'block', margin: '0 auto' }} 
-          onClick={() => {
-            const initialFen = loadPuzzleFEN(puzzle);
-            setFen(initialFen!);
-            setMoveIndex(0);
-            setStatus("playing");
-            setErrorMsg("");
-          }}
-        >
-          Retry
+
+      <div className="puzzle-status-grid">
+        <div className="stat-card">
+          <span>Line progress</span>
+          <strong>
+            {moveProgress.completedTurns}/{moveProgress.totalTurns}
+          </strong>
+        </div>
+        <div className="stat-card">
+          <span>Board side</span>
+          <strong>{puzzle.orientation === "white" ? "White to move" : "Black to move"}</strong>
+        </div>
+        <div className="stat-card">
+          <span>State</span>
+          <strong>{solved ? "Solved" : isReplying ? "Replying" : "In progress"}</strong>
+        </div>
+      </div>
+
+      <div className="puzzle-action-row">
+        <button type="button" className="secondary-button" onClick={resetPuzzle}>
+          Reset position
         </button>
-      )}
+        <button 
+          type="button" 
+          className="secondary-button" 
+          onClick={handleShowSolution}
+          disabled={solved || isReplying}
+        >
+          Show solution
+        </button>
+        <span className="muted-copy">FEN-loaded board with in-app move validation.</span>
+      </div>
     </div>
   );
 }
