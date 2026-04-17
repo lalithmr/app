@@ -1,3 +1,5 @@
+@import "./map.css";
+@import "./game.css";
 :root {
   color-scheme: dark;
   --bg: #07111f;
@@ -686,6 +688,66 @@ button {
 }
 
 @media (max-width: 920px) {
+  .app-frame {
+    flex-direction: column;
+  }
+
+  .sidebar {
+    width: 100%;
+    height: auto;
+    position: sticky;
+    top: 0;
+    flex-direction: column;
+    padding: 1rem;
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+    z-index: 50;
+  }
+
+  .sidebar > div:first-child {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .brand-caption {
+    display: none;
+  }
+
+  .sidebar-nav {
+    flex-direction: row;
+    margin-top: 1rem;
+    overflow-x: auto;
+    width: 100%;
+    gap: 0.5rem;
+    padding-bottom: 0.5rem;
+  }
+
+  .sidebar-link {
+    padding: 0.5rem 0.8rem;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+
+  .sidebar > div:last-child {
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
+    width: auto !important;
+    margin-top: 0 !important;
+  }
+
+  .sidebar > div:last-child button,
+  .sidebar > div:last-child a {
+    padding: 0.4rem 0.8rem;
+    font-size: 0.85rem;
+  }
+
+  .main-content {
+    height: auto;
+    min-height: calc(100vh - 130px);
+  }
+
   .content-grid,
   .map-grid,
   .stats-grid,
